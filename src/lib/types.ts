@@ -80,6 +80,12 @@ export interface SearchResult {
   type_name?: string;
   douban_id?: number;
 }
+// 分类结果数据结构
+export interface TypeResult {
+  type_id: number;
+  type_pid: number;
+  type_name: string;
+}
 
 // 豆瓣数据结构
 export interface DoubanItem {

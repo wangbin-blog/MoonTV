@@ -1,5 +1,5 @@
 import { API_CONFIG, ApiSite, getConfig } from '@/lib/config';
-import { SearchResult } from '@/lib/types';
+import { SearchResult, TypeResult } from '@/lib/types';
 import { cleanHtmlTags } from '@/lib/utils';
 
 interface ApiSearchItem {
@@ -187,6 +187,48 @@ export async function searchFromApi(
   }
 }
 
+export async function typeFromApi(
+): Promise<TypeResult[]> {
+  try {
+    const config = (await getConfig()).IndexSource;
+    const apiBaseUrl = config.api;
+    const apiUrl =
+      apiBaseUrl + API_CONFIG.type.path;
+    const apiName = config.name;
+    console.log("apiUrl" + apiUrl)
+    // 添加超时处理
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(apiUrl, {
+      headers: API_CONFIG.type.headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    if (
+      !data ||
+      !data.class ||
+      !Array.isArray(data.class) ||
+      data.class.length === 0
+    ) {
+      return [];
+    }
+    // 处理第一页结果
+    const results = data.class.map((item: TypeResult) => {
+      return item;
+    });
+    return results;
+  } catch (error) {
+    return [];
+  }
+}
 // 匹配 m3u8 链接的正则
 const M3U8_PATTERN = /(https?:\/\/[^"'\s]+?\.m3u8)/g;
 

@@ -20,6 +20,15 @@ interface ConfigFileStruct {
 }
 
 export const API_CONFIG = {
+  type: {
+    path: '?ac=&ids=&t=&h=&pg=&pagesize=5&wd=&at=&year=&sort_direction=desc',
+    pagePath: '?ac=&wd={query}&pg={page}',
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      Accept: 'application/json',
+    },
+  },
   search: {
     path: '?ac=videolist&wd=',
     pagePath: '?ac=videolist&wd={query}&pg={page}',
@@ -172,6 +181,10 @@ async function initConfig() {
             from: 'config',
             disabled: false,
           })),
+          IndexSource: {
+            api: "https://json.heimuer.xyz/api.php/provide/vod",
+            name: "黑木耳资源"
+          }
         };
       }
 
@@ -210,6 +223,10 @@ async function initConfig() {
         from: 'config',
         disabled: false,
       })),
+      IndexSource: {
+        api: "https://json.heimuer.xyz/api.php/provide/vod",
+        name: "黑木耳资源"
+      }
     } as AdminConfig;
   }
 }
