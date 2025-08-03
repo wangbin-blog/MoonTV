@@ -17,6 +17,9 @@ interface ConfigFileStruct {
   api_site: {
     [key: string]: ApiSite;
   };
+  index_site: {
+    [key: string]: ApiSite;
+  };
 }
 
 export const API_CONFIG = {
@@ -95,6 +98,7 @@ async function initConfig() {
 
       // 从文件中获取源信息，用于补全源
       const apiSiteEntries = Object.entries(fileConfig.api_site);
+      const indexSiteEntries = Object.entries(fileConfig.index_site);
 
       if (adminConfig) {
         // 补全 SourceConfig
@@ -181,10 +185,13 @@ async function initConfig() {
             from: 'config',
             disabled: false,
           })),
-          IndexSource: {
-            api: "https://json.heimuer.xyz/api.php/provide/vod",
-            name: "黑木耳资源"
-          }
+          IndexSource: indexSiteEntries.map(([key, site]) => ({
+            key,
+            name: site.name,
+            api: site.api,
+            detail: site.detail,
+            disabled: false,
+          }))[0],
         };
       }
 
@@ -223,10 +230,13 @@ async function initConfig() {
         from: 'config',
         disabled: false,
       })),
-      IndexSource: {
-        api: "https://json.heimuer.xyz/api.php/provide/vod",
-        name: "黑木耳资源"
-      }
+      IndexSource: Object.entries(fileConfig.index_site).map(([key, site]) => ({
+        key,
+        name: site.name,
+        api: site.api,
+        detail: site.detail,
+        disabled: false,
+      }))[0],
     } as AdminConfig;
   }
 }

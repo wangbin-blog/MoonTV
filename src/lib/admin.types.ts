@@ -23,8 +23,11 @@ export interface AdminConfig {
     disabled?: boolean;
   }[];
   IndexSource: {
-    api: "https://json.heimuer.xyz/api.php/provide/vod",
-    name: "黑木耳资源"
+    key: string;
+    name: string;
+    api: string;
+    detail?: string;
+    disabled?: boolean;
   };
 }
 

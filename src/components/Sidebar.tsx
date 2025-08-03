@@ -102,24 +102,6 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
         setMenuItems(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
-        // 出错时使用默认菜单
-        setMenuItems([
-          {
-            icon: 'Film',
-            label: '电影',
-            href: '/douban?type=movie',
-          },
-          {
-            icon: 'Tv',
-            label: '剧集',
-            href: '/douban?type=tv',
-          },
-          {
-            icon: 'Clover',
-            label: '综艺',
-            href: '/douban?type=show',
-          },
-        ]);
       } finally {
         setLoading(false);
       }

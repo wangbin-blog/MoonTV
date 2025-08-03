@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     .map(x => ({
       icon: iconMap[x.type_name] || 'Film', // 默认使用Film图标
       label: x.type_name,
-      href: `/douban?type=${x.type_id}&type_name=${x.type_name}`,
+      href: `/douban?type=${x.type_id}`,
     }));
 
   // 如果没有匹配的结果，返回默认菜单

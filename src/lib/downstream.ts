@@ -194,8 +194,6 @@ export async function typeFromApi(
     const apiBaseUrl = config.api;
     const apiUrl =
       apiBaseUrl + API_CONFIG.type.path;
-    const apiName = config.name;
-    console.log("apiUrl" + apiUrl)
     // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
