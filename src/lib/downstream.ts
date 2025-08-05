@@ -1,5 +1,5 @@
 import { API_CONFIG, ApiSite, getConfig } from '@/lib/config';
-import { SearchResult, TypeResult } from '@/lib/types';
+import { CountResult, SearchResult, TypeResult } from '@/lib/types';
 import { cleanHtmlTags } from '@/lib/utils';
 
 interface ApiSearchItem {
@@ -24,7 +24,7 @@ export async function searchFromApi(
     const apiUrl =
       apiBaseUrl + API_CONFIG.search.path + encodeURIComponent(query);
     const apiName = apiSite.name;
-
+    console.log(apiUrl)
     // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -186,7 +186,34 @@ export async function searchFromApi(
     return [];
   }
 }
+export async function indexSearchFromApi(
+  apiSite: ApiSite,
+  query: string
+): Promise<CountResult> {
+  try {
+    const apiBaseUrl = apiSite.api;
+    const apiUrl =
+      apiBaseUrl + API_CONFIG.search.path + query;
+    // 添加超时处理
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+    const response = await fetch(apiUrl, {
+      headers: API_CONFIG.search.headers,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { page: 0, pagecount: 0, limit: 0, total: 0 };
+    }
+    const data = await response.json();
+    return data as CountResult
+  } catch (error) {
+    return { page: 0, pagecount: 0, limit: 0, total: 0 };
+  }
+}
 export async function typeFromApi(
 ): Promise<TypeResult[]> {
   try {

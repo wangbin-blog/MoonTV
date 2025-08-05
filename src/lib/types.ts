@@ -65,7 +65,13 @@ export interface IStorage {
   getAdminConfig(): Promise<AdminConfig | null>;
   setAdminConfig(config: AdminConfig): Promise<void>;
 }
-
+// 分页信息
+export interface CountResult {
+  page: number;
+  pagecount: number;
+  limit: number;
+  total: number;
+}
 // 搜索结果数据结构
 export interface SearchResult {
   id: string;
@@ -100,4 +106,17 @@ export interface DoubanResult {
   code: number;
   message: string;
   list: DoubanItem[];
+}
+
+export interface ApiSearchItem {
+  vod_id: string;
+  vod_name: string;
+  vod_pic: string;
+  vod_remarks?: string;
+  vod_play_url?: string;
+  vod_class?: string;
+  vod_year?: string;
+  vod_content?: string;
+  vod_douban_id?: number;
+  type_name?: string;
 }

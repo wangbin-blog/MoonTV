@@ -7,16 +7,17 @@ import { Suspense } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getDoubanCategories } from '@/lib/douban.client';
-import { DoubanItem } from '@/lib/types';
+import { DoubanItem, SearchResult, ApiSearchItem } from '@/lib/types';
 
 import DoubanCardSkeleton from '@/components/DoubanCardSkeleton';
 import DoubanSelector from '@/components/DoubanSelector';
 import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
+import { cleanHtmlTags } from '@/lib/utils';
 
 function DoubanPageClient() {
   const searchParams = useSearchParams();
-  const [doubanData, setDoubanData] = useState<DoubanItem[]>([]);
+  const [doubanData, setDoubanData] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -83,21 +84,44 @@ function DoubanPageClient() {
     },
     [type, secondarySelection]
   );
-
+  let index_pg = 1;
   // 防抖的数据加载函数
   const loadInitialData = useCallback(async () => {
     try {
+      if (secondarySelection == undefined)
+        return;
       setLoading(true);
-      alert(secondarySelection)
-      // const data = await getDoubanCategories(getRequestParams(0));
-
-      // if (data.code === 200) {
-      //   setDoubanData(data.list);
-      //   setHasMore(data.list.length === 25);
-      //   setLoading(false);
-      // } else {
-      //   throw new Error(data.message || '获取数据失败');
-      // }
+      const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}`);
+      if (!countresponse.ok) {
+        throw new Error('Failed to fetch menu items');
+      }
+      const data = await countresponse.json();
+      if (
+        !data ||
+        !data.list ||
+        !Array.isArray(data.list) ||
+        data.list.length === 0
+      ) {
+        return [];
+      }
+      // 处理第一页结果
+      const results = data.list.map((item: ApiSearchItem) => {
+        return {
+          id: item.vod_id.toString(),
+          title: item.vod_name.trim().replace(/\s+/g, ' '),
+          poster: item.vod_pic,
+          class: item.vod_class,
+          year: item.vod_year
+            ? item.vod_year.match(/\d{4}/)?.[0] || ''
+            : 'unknown',
+          desc: cleanHtmlTags(item.vod_content || ''),
+          type_name: item.type_name,
+          douban_id: item.vod_douban_id,
+        };
+      });
+      setDoubanData(results);
+      setHasMore(data.page < data.pagecount);
+      setLoading(false);
     } catch (err) {
       console.error(err);
     }
@@ -144,18 +168,40 @@ function DoubanPageClient() {
     if (currentPage > 0) {
       const fetchMoreData = async () => {
         try {
-          // setIsLoadingMore(true);
+          setIsLoadingMore(true);
 
-          // const data = await getDoubanCategories(
-          //   getRequestParams(currentPage * 25)
-          // );
-
-          // if (data.code === 200) {
-          //   setDoubanData((prev) => [...prev, ...data.list]);
-          //   setHasMore(data.list.length === 25);
-          // } else {
-          //   throw new Error(data.message || '获取数据失败');
-          // }
+          setLoading(true);
+          const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}`);
+          if (!countresponse.ok) {
+            throw new Error('Failed to fetch menu items');
+          }
+          const data = await countresponse.json();
+          if (
+            !data ||
+            !data.list ||
+            !Array.isArray(data.list) ||
+            data.list.length === 0
+          ) {
+            return [];
+          }
+          // 处理第一页结果
+          const results = data.list.map((item: ApiSearchItem) => {
+            return {
+              id: item.vod_id.toString(),
+              title: item.vod_name.trim().replace(/\s+/g, ' '),
+              poster: item.vod_pic,
+              class: item.vod_class,
+              year: item.vod_year
+                ? item.vod_year.match(/\d{4}/)?.[0] || ''
+                : 'unknown',
+              desc: cleanHtmlTags(item.vod_content || ''),
+              type_name: item.type_name,
+              douban_id: item.vod_douban_id,
+            };
+          });
+          setDoubanData(results);
+          setHasMore(data.page < data.pagecount);
+          setLoading(false);
         } catch (err) {
           console.error(err);
         } finally {
@@ -181,6 +227,9 @@ function DoubanPageClient() {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        console.log(entries)
+        console.log(hasMore)
+        console.log(isLoadingMore)
         if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
           setCurrentPage((prev) => prev + 1);
         }
@@ -249,7 +298,7 @@ function DoubanPageClient() {
                     title={item.title}
                     poster={item.poster}
                     douban_id={item.id}
-                    rate={item.rate}
+                    rate={item.type_name}
                     year={item.year}
                     type={type === 'movie' ? 'movie' : ''} // 电影类型严格控制，tv 不控
                   />

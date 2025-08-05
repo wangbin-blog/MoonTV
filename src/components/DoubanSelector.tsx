@@ -9,6 +9,12 @@ interface SelectorOption {
   value: string;
 }
 
+// 分类结果数据结构
+interface TypeResult {
+  type_id: number;
+  type_pid: number;
+  type_name: string;
+}
 interface DoubanSelectorProps {
   type: string;
   secondarySelection?: string;
@@ -46,16 +52,21 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
   useEffect(() => {
     fetchMenuItems();
   }, []);
-  const fetchMenuItems = async () => {
+  const fetchMenuItems = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/type?type=${type}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch menu items');
-      }
-      const data = await response.json();
-      setShowOptions(data)
+      // 存入缓存
+      const raw = localStorage.getItem("menu_type");
+      if (!raw) return [];
+      var data = JSON.parse(raw) as TypeResult[];
+      const result = data
+        .filter((x: { type_pid: number; }) => x.type_pid === Number(type))
+        .map((item) => ({
+          label: item.type_name,
+          value: item.type_id.toString(),
+        }))
+      setShowOptions(result)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {

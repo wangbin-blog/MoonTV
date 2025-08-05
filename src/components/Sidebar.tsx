@@ -25,6 +25,16 @@ const dynamicIcons = {
   Gamepad2: () => import('lucide-react').then(mod => mod.Gamepad2),
 };
 
+// 定义类型名称到图标的映射
+const iconMap: Record<string, string> = {
+  '电影': 'Film',
+  '剧集': 'Tv',
+  '综艺': 'Clover',
+  '动漫': 'Star',
+  '音乐': 'Music',
+  '纪录片': 'BookOpen',
+  '游戏': 'Gamepad2',
+};
 type MenuItem = {
   icon: string;
   label: string;
@@ -94,12 +104,22 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('/api/menu?type=0');
+        const response = await fetch('/api/index/type');
         if (!response.ok) {
           throw new Error('Failed to fetch menu items');
         }
         const data = await response.json();
-        setMenuItems(data);
+        // 存入缓存
+        localStorage.setItem("menu_type", JSON.stringify(data));
+        // 过滤并映射结果为menuItems格式
+        const apiMenuItems = data
+          .filter((x: { type_pid: number; }) => x.type_pid === 0)
+          .map((x: { type_name: string | number; type_id: any; }) => ({
+            icon: iconMap[x.type_name] || 'Film', // 默认使用Film图标
+            label: x.type_name,
+            href: `/douban?type=${x.type_id}`,
+          }));
+        setMenuItems(apiMenuItems);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {

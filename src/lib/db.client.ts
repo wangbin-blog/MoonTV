@@ -40,6 +40,12 @@ export interface Favorite {
   save_time: number;
   search_title?: string;
 }
+export interface MenuType {
+  value: number;
+  label: string;
+  icon: string;
+  href: string;
+}
 
 // ---- 缓存数据结构 ----
 interface CacheData<T> {
@@ -58,6 +64,7 @@ interface UserCacheStore {
 const PLAY_RECORDS_KEY = 'moontv_play_records';
 const FAVORITES_KEY = 'moontv_favorites';
 const SEARCH_HISTORY_KEY = 'moontv_search_history';
+const MENU_TYPE_KEY = 'menu_type';
 
 // 缓存相关常量
 const CACHE_PREFIX = 'moontv_cache_';
@@ -311,7 +318,7 @@ const cacheManager = HybridCacheManager.getInstance();
  * 立即从数据库刷新对应类型的缓存以保持数据一致性
  */
 async function handleDatabaseOperationFailure(
-  dataType: 'playRecords' | 'favorites' | 'searchHistory',
+  dataType: 'playRecords' | 'favorites' | 'searchHistory' | 'menuType',
   error: any
 ): Promise<void> {
   console.error(`数据库操作失败 (${dataType}):`, error);
@@ -339,6 +346,11 @@ async function handleDatabaseOperationFailure(
         freshData = await fetchFromApi<string[]>(`/api/searchhistory`);
         cacheManager.cacheSearchHistory(freshData);
         eventName = 'searchHistoryUpdated';
+        break;
+      case 'menuType':
+        freshData = await fetchFromApi<string[]>(`/api/menu?type=-1`);
+        cacheManager.cacheSearchHistory(freshData);
+        eventName = 'menuTypeUpdated';
         break;
     }
 
@@ -781,6 +793,58 @@ export async function deleteSearchHistory(keyword: string): Promise<void> {
   }
 }
 
+/**
+ * 获取菜单类型
+ */
+export async function getMenuTypes(): Promise<MenuType[]> {
+  console.log(22222)
+  // 服务器端渲染阶段直接返回空
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  // localStorage 模式
+  try {
+    let raw = localStorage.getItem(MENU_TYPE_KEY);
+
+    if (!raw) {
+      // 刷新缓存
+      refreshAllCache()
+      raw = localStorage.getItem(MENU_TYPE_KEY);
+      if (!raw)
+        return [];
+      return JSON.parse(raw) as MenuType[];
+    } else {
+      return JSON.parse(raw) as MenuType[];
+    }
+  } catch (err) {
+    console.error('读取菜单失败:', err);
+    return [];
+  }
+}
+export async function saveMenuType(source: string,
+  id: string,
+  menuType: MenuType): Promise<void> {
+  const key = generateStorageKey(source, id);
+  // localStorage 模式
+  if (typeof window === 'undefined') {
+    console.warn('无法在服务端保存收藏到 localStorage');
+    return;
+  }
+
+  try {
+    localStorage.setItem(MENU_TYPE_KEY, JSON.stringify(menuType));
+    window.dispatchEvent(
+      new CustomEvent('menuTypeUpdated', {
+        detail: menuType,
+      })
+    );
+  } catch (err) {
+    console.error('保存收藏失败:', err);
+    throw err;
+  }
+}
+
 // ---------------- 收藏相关 API ----------------
 
 /**
@@ -1122,10 +1186,11 @@ export async function refreshAllCache(): Promise<void> {
 
   try {
     // 并行刷新所有数据
-    const [playRecords, favorites, searchHistory] = await Promise.allSettled([
+    const [playRecords, favorites, searchHistory, menuType] = await Promise.allSettled([
       fetchFromApi<Record<string, PlayRecord>>(`/api/playrecords`),
       fetchFromApi<Record<string, Favorite>>(`/api/favorites`),
       fetchFromApi<string[]>(`/api/searchhistory`),
+      fetchFromApi<string[]>(`/api/index/type`),
     ]);
 
     if (playRecords.status === 'fulfilled') {
@@ -1154,6 +1219,16 @@ export async function refreshAllCache(): Promise<void> {
         })
       );
     }
+
+    if (menuType.status === 'fulfilled') {
+      cacheManager.cacheSearchHistory(menuType.value);
+      window.dispatchEvent(
+        new CustomEvent('menuTypeUpdated', {
+          detail: menuType.value,
+        })
+      );
+    }
+
   } catch (err) {
     console.error('刷新缓存失败:', err);
   }
@@ -1192,7 +1267,8 @@ export function getCacheStatus(): {
 export type CacheUpdateEvent =
   | 'playRecordsUpdated'
   | 'favoritesUpdated'
-  | 'searchHistoryUpdated';
+  | 'searchHistoryUpdated'
+  | 'menuTypeUpdated';
 
 /**
  * 用于 React 组件监听数据更新的事件监听器
@@ -1210,7 +1286,7 @@ export function subscribeToDataUpdates<T>(
   callback: (data: T) => void
 ): () => void {
   if (typeof window === 'undefined') {
-    return () => {};
+    return () => { };
   }
 
   const handleUpdate = (event: CustomEvent) => {
