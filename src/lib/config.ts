@@ -33,8 +33,8 @@ export const API_CONFIG = {
     },
   },
   search: {
-    path: '?ac=videolist&wd=',
-    pagePath: '?ac=videolist&wd={query}&pg={page}',
+    path: '?ac=videolist&t=&sort_direction=desc',
+    pagePath: '?ac=videolist&wd={query}&t={type_id}&pg={page}&pagesize=25',
     headers: {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',

@@ -14,6 +14,7 @@ import DoubanSelector from '@/components/DoubanSelector';
 import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
 import { cleanHtmlTags } from '@/lib/utils';
+import { getConfig } from '@/lib/config';
 
 function DoubanPageClient() {
   const searchParams = useSearchParams();
@@ -91,36 +92,8 @@ function DoubanPageClient() {
       if (secondarySelection == undefined)
         return;
       setLoading(true);
-      const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}`);
-      if (!countresponse.ok) {
-        throw new Error('Failed to fetch menu items');
-      }
-      const data = await countresponse.json();
-      if (
-        !data ||
-        !data.list ||
-        !Array.isArray(data.list) ||
-        data.list.length === 0
-      ) {
-        return [];
-      }
-      // 处理第一页结果
-      const results = data.list.map((item: ApiSearchItem) => {
-        return {
-          id: item.vod_id.toString(),
-          title: item.vod_name.trim().replace(/\s+/g, ' '),
-          poster: item.vod_pic,
-          class: item.vod_class,
-          year: item.vod_year
-            ? item.vod_year.match(/\d{4}/)?.[0] || ''
-            : 'unknown',
-          desc: cleanHtmlTags(item.vod_content || ''),
-          type_name: item.type_name,
-          douban_id: item.vod_douban_id,
-        };
-      });
+      const results = await getData()
       setDoubanData(results);
-      setHasMore(data.page < data.pagecount);
       setLoading(false);
     } catch (err) {
       console.error(err);
@@ -166,41 +139,13 @@ function DoubanPageClient() {
   // 单独处理 currentPage 变化（加载更多）
   useEffect(() => {
     if (currentPage > 0) {
+
       const fetchMoreData = async () => {
         try {
           setIsLoadingMore(true);
-
-          setLoading(true);
-          const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}`);
-          if (!countresponse.ok) {
-            throw new Error('Failed to fetch menu items');
-          }
-          const data = await countresponse.json();
-          if (
-            !data ||
-            !data.list ||
-            !Array.isArray(data.list) ||
-            data.list.length === 0
-          ) {
-            return [];
-          }
-          // 处理第一页结果
-          const results = data.list.map((item: ApiSearchItem) => {
-            return {
-              id: item.vod_id.toString(),
-              title: item.vod_name.trim().replace(/\s+/g, ' '),
-              poster: item.vod_pic,
-              class: item.vod_class,
-              year: item.vod_year
-                ? item.vod_year.match(/\d{4}/)?.[0] || ''
-                : 'unknown',
-              desc: cleanHtmlTags(item.vod_content || ''),
-              type_name: item.type_name,
-              douban_id: item.vod_douban_id,
-            };
-          });
-          setDoubanData(results);
-          setHasMore(data.page < data.pagecount);
+          const results = await getData()
+          // 追加新数据而不是替换
+          setDoubanData(prevData => [...prevData, ...results]);
           setLoading(false);
         } catch (err) {
           console.error(err);
@@ -268,6 +213,70 @@ function DoubanPageClient() {
     return activePath;
   };
 
+  const getData = async () => {
+    // 匹配 m3u8 链接的正则
+    const M3U8_PATTERN = /(https?:\/\/[^"'\s]+?\.m3u8)/g;
+    const indexSource = (await getConfig()).IndexSource;
+    const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}`);
+    if (!countresponse.ok) {
+      throw new Error('Failed to fetch menu items');
+    }
+    const data = await countresponse.json();
+    if (
+      !data ||
+      !data.list ||
+      !Array.isArray(data.list) ||
+      data.list.length === 0
+    ) {
+      return [];
+    }
+    // 处理第一页结果
+    const results = data.list.map((item: ApiSearchItem) => {
+      let episodes: string[] = [];
+
+      // 处理播放源拆分
+      if (item.vod_play_url) {
+        const playSources = item.vod_play_url.split('$$$');
+        if (playSources.length > 0) {
+          const mainSource = playSources[0];
+          const episodeList = mainSource.split('#');
+          episodes = episodeList
+            .map((ep: string) => {
+              const parts = ep.split('$');
+              return parts.length > 1 ? parts[1] : '';
+            })
+            .filter(
+              (url: string) =>
+                url && (url.startsWith('http://') || url.startsWith('https://'))
+            );
+        }
+      }
+
+      // 如果播放源为空，则尝试从内容中解析 m3u8
+      if (episodes.length === 0 && item.vod_content) {
+        const matches = item.vod_content.match(M3U8_PATTERN) || [];
+        episodes = matches.map((link: string) => link.replace(/^\$/, ''));
+      }
+
+      return {
+        id: item.vod_id.toString(),
+        title: item.vod_name,
+        poster: item.vod_pic,
+        episodes,
+        source: indexSource.api,
+        source_name: indexSource.name,
+        class: item.vod_class,
+        year: item.vod_year
+          ? item.vod_year.match(/\d{4}/)?.[0] || ''
+          : 'unknown',
+        desc: cleanHtmlTags(item.vod_content || ''),
+        type_name: item.type_name,
+        douban_id: item.vod_douban_id,
+      };
+    });
+    setHasMore(data.page < data.pagecount);
+    return results;
+  }
   return (
     <PageLayout activePath={getActivePath()}>
       <div className='px-4 sm:px-10 py-4 sm:py-8 overflow-visible'>
@@ -294,13 +303,17 @@ function DoubanPageClient() {
               doubanData.map((item, index) => (
                 <div key={`${item.title}-${index}`} className='w-full'>
                   <VideoCard
-                    from='douban'
+                    from='search'
+                    id={item.id}
                     title={item.title}
+                    source={item.source}
+                    source_name={item.source_name}
                     poster={item.poster}
-                    douban_id={item.id}
+                    douban_id={item.douban_id?.toString()}
+                    query={item.title}
                     rate={item.type_name}
                     year={item.year}
-                    type={type === 'movie' ? 'movie' : ''} // 电影类型严格控制，tv 不控
+                    type={item.episodes.length > 1 ? 'tv' : 'movie'} // 电影类型严格控制，tv 不控
                   />
                 </div>
               ))}

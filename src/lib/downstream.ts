@@ -188,12 +188,18 @@ export async function searchFromApi(
 }
 export async function indexSearchFromApi(
   apiSite: ApiSite,
-  query: string
+  type_id: number,
+  pg: number
 ): Promise<CountResult> {
   try {
     const apiBaseUrl = apiSite.api;
     const apiUrl =
-      apiBaseUrl + API_CONFIG.search.path + query;
+      apiBaseUrl +
+      API_CONFIG.search.pagePath
+        .replace('{type_id}', type_id.toString())
+        .replace('{query}', '')
+        .replace('{page}', pg.toString());
+    console.log("apiUrl" + apiUrl)
     // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -209,6 +215,7 @@ export async function indexSearchFromApi(
       return { page: 0, pagecount: 0, limit: 0, total: 0 };
     }
     const data = await response.json();
+    // console.log(data)
     return data as CountResult
   } catch (error) {
     return { page: 0, pagecount: 0, limit: 0, total: 0 };
