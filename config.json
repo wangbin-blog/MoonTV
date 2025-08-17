@@ -87,10 +87,10 @@
     }
   },
   "index_site": {
-    "heimuer": {
-      "api": "https://json.heimuer.xyz/api.php/provide/vod",
+    "dyttzy": {
+      "api": "http://caiji.dyttzyapi.com/api.php/provide/vod",
       "name": "黑木耳",
-      "detail": "https://heimuer.tv"
+      "detail": ""
     }
   }
 }

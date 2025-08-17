@@ -93,6 +93,9 @@ function DoubanPageClient() {
         return;
       setLoading(true);
       const results = await getData()
+      if (results.length === 0) {
+        setHasMore(false);
+      }
       setDoubanData(results);
       setLoading(false);
     } catch (err) {
@@ -143,7 +146,11 @@ function DoubanPageClient() {
       const fetchMoreData = async () => {
         try {
           setIsLoadingMore(true);
-          const results = await getData()
+          const results = await getData();
+          if (results.length === 0) {
+            setHasMore(false);
+          }
+
           // 追加新数据而不是替换
           setDoubanData(prevData => [...prevData, ...results]);
           setLoading(false);
@@ -263,7 +270,7 @@ function DoubanPageClient() {
         title: item.vod_name,
         poster: item.vod_pic,
         episodes,
-        source: indexSource.api,
+        source: indexSource.key,
         source_name: indexSource.name,
         class: item.vod_class,
         year: item.vod_year

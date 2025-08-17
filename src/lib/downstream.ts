@@ -268,12 +268,13 @@ export async function getDetailFromApi(
   apiSite: ApiSite,
   id: string
 ): Promise<SearchResult> {
-  if (apiSite.detail) {
-    return handleSpecialSourceDetail(id, apiSite);
-  }
+  // if (apiSite.detail) {
+  //   return handleSpecialSourceDetail(id, apiSite);
+  // }
 
   const detailUrl = `${apiSite.api}${API_CONFIG.detail.path}${id}`;
-
+  console.log("detailUrl")
+  console.log(detailUrl)
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 10000);
 
