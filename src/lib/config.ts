@@ -15,10 +15,7 @@ export interface ApiSite {
 interface ConfigFileStruct {
   cache_time?: number;
   api_site: {
-    [key: string]: ApiSite;
-  };
-  index_site: {
-    [key: string]: ApiSite;
+    [key: string]: ApiSite & { selected?: boolean; isIndexSource?: boolean };
   };
 }
 
@@ -98,7 +95,6 @@ async function initConfig() {
 
       // 从文件中获取源信息，用于补全源
       const apiSiteEntries = Object.entries(fileConfig.api_site);
-      const indexSiteEntries = Object.entries(fileConfig.index_site);
 
       if (adminConfig) {
         // 补全 SourceConfig
@@ -113,7 +109,8 @@ async function initConfig() {
               api: site.api,
               detail: site.detail,
               from: 'config',
-              disabled: false,
+              selected: false,
+              isIndexSource: false,
             });
           }
         });
@@ -165,11 +162,9 @@ async function initConfig() {
         adminConfig = {
           SiteConfig: {
             SiteName: process.env.SITE_NAME || 'MoonTV',
-            Announcement:
-              process.env.ANNOUNCEMENT ||
+            Announcement: process.env.ANNOUNCEMENT ||
               '本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。',
-            SearchDownstreamMaxPage:
-              Number(process.env.NEXT_PUBLIC_SEARCH_MAX_PAGE) || 5,
+            SearchDownstreamMaxPage: Number(process.env.NEXT_PUBLIC_SEARCH_MAX_PAGE) || 5,
             SiteInterfaceCacheTime: fileConfig.cache_time || 7200,
             ImageProxy: process.env.NEXT_PUBLIC_IMAGE_PROXY || '',
           },
@@ -185,13 +180,15 @@ async function initConfig() {
             from: 'config',
             disabled: false,
           })),
-          IndexSource: indexSiteEntries.map(([key, site]) => ({
-            key,
-            name: site.name,
-            api: site.api,
-            detail: site.detail,
-            disabled: false,
-          }))[0],
+          IndexSource: apiSiteEntries
+            .filter(([_, site]) => site.isIndexSource)
+            .map(([key, site]) => ({
+              key,
+              name: site.name,
+              api: site.api,
+              detail: site.detail,
+              disabled: false,
+            }))[0] || null,
         };
       }
 
@@ -207,14 +204,13 @@ async function initConfig() {
     }
   } else {
     // 本地存储直接使用文件配置
+    const apiSiteEntries = Object.entries(fileConfig.api_site);
     cachedConfig = {
       SiteConfig: {
         SiteName: process.env.SITE_NAME || 'MoonTV',
-        Announcement:
-          process.env.ANNOUNCEMENT ||
+        Announcement: process.env.ANNOUNCEMENT ||
           '本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。',
-        SearchDownstreamMaxPage:
-          Number(process.env.NEXT_PUBLIC_SEARCH_MAX_PAGE) || 5,
+        SearchDownstreamMaxPage: Number(process.env.NEXT_PUBLIC_SEARCH_MAX_PAGE) || 5,
         SiteInterfaceCacheTime: fileConfig.cache_time || 7200,
         ImageProxy: process.env.NEXT_PUBLIC_IMAGE_PROXY || '',
       },
@@ -222,7 +218,7 @@ async function initConfig() {
         AllowRegister: process.env.NEXT_PUBLIC_ENABLE_REGISTER === 'true',
         Users: [],
       },
-      SourceConfig: Object.entries(fileConfig.api_site).map(([key, site]) => ({
+      SourceConfig: apiSiteEntries.map(([key, site]) => ({
         key,
         name: site.name,
         api: site.api,
@@ -230,13 +226,15 @@ async function initConfig() {
         from: 'config',
         disabled: false,
       })),
-      IndexSource: Object.entries(fileConfig.index_site).map(([key, site]) => ({
-        key,
-        name: site.name,
-        api: site.api,
-        detail: site.detail,
-        disabled: false,
-      }))[0],
+      IndexSource: apiSiteEntries
+        .filter(([_, site]) => site.isIndexSource)
+        .map(([key, site]) => ({
+          key,
+          name: site.name,
+          api: site.api,
+          detail: site.detail,
+          disabled: false,
+        }))[0] || null,
     } as AdminConfig;
   }
 }
@@ -276,7 +274,8 @@ export async function getConfig(): Promise<AdminConfig> {
           api: site.api,
           detail: site.detail,
           from: 'config',
-          disabled: false,
+          selected: false,
+          isIndexSource: false,
         });
       }
     });
@@ -288,6 +287,18 @@ export async function getConfig(): Promise<AdminConfig> {
         source.from = 'custom';
       }
     });
+
+    // 更新 IndexSource 从 api_site 中筛选出 isIndexSource 为 true 的对象
+    adminConfig.IndexSource = apiSiteEntries
+      .filter(([_, site]) => site.isIndexSource)
+      .map(([key, site]) => ({
+        key,
+        name: site.name,
+        api: site.api,
+        detail: site.detail,
+        disabled: false,
+      }))[0] || null;
+
     cachedConfig = adminConfig;
   } else {
     // DB 无配置，执行一次初始化
@@ -340,11 +351,9 @@ export async function resetConfig() {
   const adminConfig = {
     SiteConfig: {
       SiteName: process.env.SITE_NAME || 'MoonTV',
-      Announcement:
-        process.env.ANNOUNCEMENT ||
+      Announcement: process.env.ANNOUNCEMENT ||
         '本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。',
-      SearchDownstreamMaxPage:
-        Number(process.env.NEXT_PUBLIC_SEARCH_MAX_PAGE) || 5,
+      SearchDownstreamMaxPage: Number(process.env.NEXT_PUBLIC_SEARCH_MAX_PAGE) || 5,
       SiteInterfaceCacheTime: fileConfig.cache_time || 7200,
       ImageProxy: process.env.NEXT_PUBLIC_IMAGE_PROXY || '',
     },
@@ -360,6 +369,15 @@ export async function resetConfig() {
       from: 'config',
       disabled: false,
     })),
+    IndexSource: apiSiteEntries
+      .filter(([_, site]) => site.isIndexSource)
+      .map(([key, site]) => ({
+        key,
+        name: site.name,
+        api: site.api,
+        detail: site.detail,
+        disabled: false,
+      }))[0] || null,
   } as AdminConfig;
 
   if (storage && typeof (storage as any).setAdminConfig === 'function') {
@@ -372,6 +390,7 @@ export async function resetConfig() {
   cachedConfig.SiteConfig = adminConfig.SiteConfig;
   cachedConfig.UserConfig = adminConfig.UserConfig;
   cachedConfig.SourceConfig = adminConfig.SourceConfig;
+  cachedConfig.IndexSource = adminConfig.IndexSource;
 }
 
 export async function getCacheTime(): Promise<number> {
@@ -381,7 +400,7 @@ export async function getCacheTime(): Promise<number> {
 
 export async function getAvailableApiSites(): Promise<ApiSite[]> {
   const config = await getConfig();
-  return config.SourceConfig.filter((s) => !s.disabled).map((s) => ({
+  return config.SourceConfig.map((s) => ({
     key: s.key,
     name: s.name,
     api: s.api,

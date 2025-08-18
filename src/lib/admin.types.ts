@@ -20,7 +20,9 @@ export interface AdminConfig {
     api: string;
     detail?: string;
     from: 'config' | 'custom';
-    disabled?: boolean;
+    selected?: boolean;
+    isIndexSource?: boolean;
+
   }[];
   IndexSource: {
     key: string;

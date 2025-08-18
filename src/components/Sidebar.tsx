@@ -1,28 +1,21 @@
 'use client';
 
-import { Home, Menu, Search } from 'lucide-react';
+import { Home, Menu, Search, Film, Tv, Clover, Star, Music, BookOpen, Gamepad2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useLayoutEffect,
-  useState,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useSite } from './SiteProvider';
 
-// 动态导入图标组件
-const dynamicIcons = {
-  Film: () => import('lucide-react').then(mod => mod.Film),
-  Tv: () => import('lucide-react').then(mod => mod.Tv),
-  Clover: () => import('lucide-react').then(mod => mod.Clover),
-  Star: () => import('lucide-react').then(mod => mod.Star),
-  Music: () => import('lucide-react').then(mod => mod.Music),
-  BookOpen: () => import('lucide-react').then(mod => mod.BookOpen),
-  Gamepad2: () => import('lucide-react').then(mod => mod.Gamepad2),
+// 定义图标映射
+const iconComponents: Record<string, React.ElementType> = {
+  Film: Film,
+  Tv: Tv,
+  Clover: Clover,
+  Star: Star,
+  Music: Music,
+  BookOpen: BookOpen,
+  Gamepad2: Gamepad2,
 };
 
 // 定义类型名称到图标的映射
@@ -35,6 +28,7 @@ const iconMap: Record<string, string> = {
   '纪录片': 'BookOpen',
   '游戏': 'Gamepad2',
 };
+
 type MenuItem = {
   icon: string;
   label: string;
@@ -45,9 +39,7 @@ interface SidebarContextType {
   isCollapsed: boolean;
 }
 
-const SidebarContext = createContext<SidebarContextType>({
-  isCollapsed: false,
-});
+const SidebarContext = createContext<SidebarContextType>({ isCollapsed: false });
 
 export const useSidebar = () => useContext(SidebarContext);
 
@@ -59,9 +51,7 @@ const Logo = () => {
       href='/'
       className='flex items-center justify-center h-16 select-none hover:opacity-80 transition-opacity duration-200'
     >
-      <span className='text-2xl font-bold text-green-600 tracking-tight'>
-        {siteName}
-      </span>
+      <span className='text-2xl font-bold text-green-600 tracking-tight'>{siteName}</span>
     </Link>
   );
 };
@@ -97,110 +87,69 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // 从API获取菜单数据
-  useEffect(() => {
-    const fetchMenuItems = async () => {
-      try {
-
-        const temp = localStorage.getItem('apiMenuItems');
-        // 此处再加是否切换首页源判断
-        if (temp && temp.length > 0) {
-          setMenuItems(JSON.parse(temp));
-          return;
-        }
-        setLoading(true);
-        setError(null);
-        const response = await fetch('/api/index/type');
-        if (!response.ok) {
-          throw new Error('Failed to fetch menu items');
-        }
-        const data = await response.json();
-        // 存入缓存
-        localStorage.setItem("menu_type", JSON.stringify(data));
-        // 过滤并映射结果为menuItems格式
-        const apiMenuItems = data
-          .filter((x: { type_pid: number; }) => x.type_pid === 0)
-          .map((x: { type_name: string | number; type_id: any; }) => ({
-            icon: iconMap[x.type_name] || 'Film', // 默认使用Film图标
-            label: x.type_name,
-            href: `/douban?type=${x.type_id}`,
-          }));
-
-        localStorage.setItem('apiMenuItems', JSON.stringify(apiMenuItems));
-
-        setMenuItems(apiMenuItems);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchMenuItems();
-  }, []);
-
-  // 首次挂载时读取 localStorage，以便刷新后仍保持上次的折叠状态
-  useLayoutEffect(() => {
-    const saved = localStorage.getItem('sidebarCollapsed');
-    if (saved !== null) {
-      const val = JSON.parse(saved);
-      setIsCollapsed(val);
-      window.__sidebarCollapsed = val;
-    }
-  }, []);
-
-  // 当折叠状态变化时，同步到 <html> data 属性，供首屏 CSS 使用
-  useLayoutEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (isCollapsed) {
-        document.documentElement.dataset.sidebarCollapsed = 'true';
-      } else {
-        delete document.documentElement.dataset.sidebarCollapsed;
-      }
-    }
-  }, [isCollapsed]);
-
+  // 激活路径状态
   const [active, setActive] = useState(activePath);
 
+  // 监听路径变化，更新激活状态
   useEffect(() => {
-    // 优先使用传入的 activePath
-    if (activePath) {
-      setActive(activePath);
-    } else {
-      // 否则使用当前路径
-      const getCurrentFullPath = () => {
-        const queryString = searchParams.toString();
-        return queryString ? `${pathname}?${queryString}` : pathname;
-      };
-      const fullPath = getCurrentFullPath();
-      setActive(fullPath);
+    if (pathname && searchParams) {
+      const newActivePath = searchParams.toString()
+        ? `${pathname}?${searchParams.toString()}`
+        : pathname;
+      setActive(newActivePath);
     }
-  }, [activePath, pathname, searchParams]);
+  }, [pathname, searchParams]);
 
+  // 处理折叠状态变化
   const handleToggle = useCallback(() => {
-    const newState = !isCollapsed;
-    setIsCollapsed(newState);
-    localStorage.setItem('sidebarCollapsed', JSON.stringify(newState));
+    const newCollapsed = !isCollapsed;
+    setIsCollapsed(newCollapsed);
     if (typeof window !== 'undefined') {
-      window.__sidebarCollapsed = newState;
+      window.__sidebarCollapsed = newCollapsed;
     }
-    onToggle?.(newState);
+    if (onToggle) {
+      onToggle(newCollapsed);
+    }
   }, [isCollapsed, onToggle]);
 
-  const handleSearchClick = useCallback(() => {
-    router.push('/search');
-  }, [router]);
+  // 获取侧边栏内容
+  const getSidebarContent = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const contextValue = {
-    isCollapsed,
-  };
+      // 定义默认的菜单项目
+      const defaultItems: MenuItem[] = [
+        { icon: 'Film', label: '电影', href: '/douban/type/movie' },
+        { icon: 'Tv', label: '剧集', href: '/douban/type/tv' },
+        { icon: 'Clover', label: '综艺', href: '/douban/type/variety' },
+        { icon: 'Star', label: '动漫', href: '/douban/type/animation' },
+        { icon: 'Music', label: '音乐', href: '/douban/type/music' },
+        { icon: 'BookOpen', label: '纪录片', href: '/douban/type/documentary' },
+        { icon: 'Gamepad2', label: '游戏', href: '/douban/type/game' },
+      ];
 
-  // 动态加载图标组件
+      setMenuItems(defaultItems);
+    } catch (err) {
+      console.error('Failed to load sidebar content:', err);
+      setError('加载侧边栏内容失败');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // 组件挂载时获取内容
+  useEffect(() => {
+    getSidebarContent();
+  }, [getSidebarContent]);
+
+  const contextValue = { isCollapsed };
+
+  // 图标组件
   const IconComponent = ({ name }: { name: string }) => {
-    const Icon = dynamicIcons[name as keyof typeof dynamicIcons];
+    const Icon = iconComponents[name];
     if (!Icon) return null;
-    // return <Icon className='h-4 w-4 text-gray-500 group-hover:text-green-600 data-[active=true]:text-green-700 dark:text-gray-400 dark:group-hover:text-green-400 dark:data-[active=true]:text-green-400' />;
+    return <Icon className='h-4 w-4 text-gray-500 group-hover:text-green-600 data-[active=true]:text-green-700 dark:text-gray-400 dark:group-hover:text-green-400 dark:data-[active=true]:text-green-400' />;
   };
 
   return (
@@ -208,91 +157,51 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
       {/* 在移动端隐藏侧边栏 */}
       <div className='hidden md:flex'>
         <aside
-          data-sidebar
-          className={`fixed top-0 left-0 h-screen bg-white/40 backdrop-blur-xl transition-all duration-300 border-r border-gray-200/50 z-10 shadow-lg dark:bg-gray-900/70 dark:border-gray-700/50 ${isCollapsed ? 'w-16' : 'w-64'
-            }`}
-          style={{
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-          }}
+          className={`fixed left-0 top-0 z-30 h-full border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 transition-all duration-200 ${isCollapsed ? 'w-16' : 'w-64'}`}
+          style={{ boxShadow: isCollapsed ? 'none' : '0 0 10px rgba(0, 0, 0, 0.05)' }}
         >
-          <div className='flex h-full flex-col'>
-            {/* 顶部 Logo 区域 */}
-            <div className='relative h-16'>
-              <div
-                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isCollapsed ? 'opacity-0' : 'opacity-100'
-                  }`}
-              >
-                <div className='w-[calc(100%-4rem)] flex justify-center'>
-                  {!isCollapsed && <Logo />}
-                </div>
-              </div>
-              <button
-                onClick={handleToggle}
-                className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center w-8 h-8 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 transition-colors duration-200 z-10 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700/50 ${isCollapsed ? 'left-1/2 -translate-x-1/2' : 'right-2'
-                  }`}
-              >
-                <Menu className='h-4 w-4' />
-              </button>
-            </div>
+          <div className={`h-full flex flex-col ${isCollapsed ? 'items-center' : ''}`}>
+            <Logo />
 
-            {/* 首页和搜索导航 */}
-            <nav className='px-2 mt-4 space-y-1'>
+            <div className='flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-1'>
               <Link
                 href='/'
                 onClick={() => setActive('/')}
                 data-active={active === '/'}
-                className={`group flex items-center rounded-lg px-2 py-2 pl-4 text-gray-700 hover:bg-gray-100/30 hover:text-green-600 data-[active=true]:bg-green-500/20 data-[active=true]:text-green-700 font-medium transition-colors duration-200 min-h-[40px] dark:text-gray-300 dark:hover:text-green-400 dark:data-[active=true]:bg-green-500/10 dark:data-[active=true]:text-green-400 ${isCollapsed ? 'w-full max-w-none mx-0' : 'mx-0'} gap-3 justify-start`}
+                className={`group flex items-center rounded-lg px-2 py-2 pl-4 text-sm text-gray-700 hover:bg-gray-100/30 hover:text-green-600 data-[active=true]:bg-green-500/20 data-[active=true]:text-green-700 transition-colors duration-200 min-h-[40px] dark:text-gray-300 dark:hover:text-green-400 dark:data-[active=true]:bg-green-500/10 dark:data-[active=true]:text-green-400 ${isCollapsed ? 'w-full max-w-none mx-0' : 'mx-0'} gap-3 justify-start`}
               >
                 <div className='w-4 h-4 flex items-center justify-center'>
                   <Home className='h-4 w-4 text-gray-500 group-hover:text-green-600 data-[active=true]:text-green-700 dark:text-gray-400 dark:group-hover:text-green-400 dark:data-[active=true]:text-green-400' />
                 </div>
-                {!isCollapsed && (
-                  <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>
-                    首页
-                  </span>
-                )}
+                {!isCollapsed && <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>首页</span>}
               </Link>
+              
               <Link
                 href='/search'
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSearchClick();
-                  setActive('/search');
-                }}
+                onClick={() => setActive('/search')}
                 data-active={active === '/search'}
-                className={`group flex items-center rounded-lg px-2 py-2 pl-4 text-gray-700 hover:bg-gray-100/30 hover:text-green-600 data-[active=true]:bg-green-500/20 data-[active=true]:text-green-700 font-medium transition-colors duration-200 min-h-[40px] dark:text-gray-300 dark:hover:text-green-400 dark:data-[active=true]:bg-green-500/10 dark:data-[active=true]:text-green-400 ${isCollapsed ? 'w-full max-w-none mx-0' : 'mx-0'
-                  } gap-3 justify-start`}
+                className={`group flex items-center rounded-lg px-2 py-2 pl-4 text-sm text-gray-700 hover:bg-gray-100/30 hover:text-green-600 data-[active=true]:bg-green-500/20 data-[active=true]:text-green-700 transition-colors duration-200 min-h-[40px] dark:text-gray-300 dark:hover:text-green-400 dark:data-[active=true]:bg-green-500/10 dark:data-[active=true]:text-green-400 ${isCollapsed ? 'w-full max-w-none mx-0' : 'mx-0'} gap-3 justify-start`}
               >
                 <div className='w-4 h-4 flex items-center justify-center'>
                   <Search className='h-4 w-4 text-gray-500 group-hover:text-green-600 data-[active=true]:text-green-700 dark:text-gray-400 dark:group-hover:text-green-400 dark:data-[active=true]:text-green-400' />
                 </div>
-                {!isCollapsed && (
-                  <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>
-                    搜索
-                  </span>
-                )}
+                {!isCollapsed && <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>搜索</span>}
               </Link>
-            </nav>
 
-            {/* 菜单项 */}
-            <div className='flex-1 overflow-y-auto px-2 pt-4'>
-              <div className='space-y-1'>
-                {loading ? (
-                  <div className='px-2 py-2'>加载中...</div>
-                ) : error ? (
-                  <div className='px-2 py-2 text-red-500'>{error}</div>
-                ) : (
-                  menuItems.map((item) => {
-                    // 检查当前路径是否匹配这个菜单项
-                    const typeMatch = item.href.match(/type=([^&]+)/)?.[1];
-                    const tagMatch = item.href.match(/tag=([^&]+)/)?.[1];
-
+              {!loading && !error && (
+                <>
+                  <div className={`text-xs text-gray-500 uppercase tracking-wider py-2 px-4 ${isCollapsed ? 'hidden' : ''}`}>分类浏览</div>
+                  {menuItems.map((item) => {
+                    // 检查当前路径是否包含分类标签
+                    const tagMatch = /tag=([^&]+)/.exec(active);
+                    // 提取分类类型
+                    const typeMatch = item.href.split('/').pop() || '';
+                    
                     // 解码URL以进行正确的比较
                     const decodedActive = decodeURIComponent(active);
                     const decodedItemHref = decodeURIComponent(item.href);
 
-                    const isActive =
+                    const isActive = 
                       decodedActive === decodedItemHref ||
                       (decodedActive.startsWith('/douban') &&
                         decodedActive.includes(`type=${typeMatch}`) &&
@@ -309,23 +218,38 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
                         <div className='w-4 h-4 flex items-center justify-center'>
                           <IconComponent name={item.icon} />
                         </div>
-                        {!isCollapsed && (
-                          <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>
-                            {item.label}
-                          </span>
-                        )}
+                        {!isCollapsed && <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>{item.label}</span>}
                       </Link>
                     );
-                  })
-                )}
-              </div>
+                  })}
+                </>
+              )}
+
+              {loading && (
+                <div className='py-4 px-4 space-y-2'>
+                  <div className='h-6 bg-gray-200 rounded dark:bg-gray-700 animate-pulse'></div>
+                  <div className='h-6 bg-gray-200 rounded dark:bg-gray-700 animate-pulse'></div>
+                  <div className='h-6 bg-gray-200 rounded dark:bg-gray-700 animate-pulse'></div>
+                </div>
+              )}
+
+              {error && (
+                <div className='py-4 px-4 text-sm text-red-500 dark:text-red-400'>{error}</div>
+              )}
+            </div>
+
+            <div className='p-2 border-t border-gray-200 dark:border-gray-800'>
+              <button
+                onClick={handleToggle}
+                className={`w-full flex items-center justify-center px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors`}
+                aria-label={isCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+              >
+                <Menu className={`h-5 w-5 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
+                {!isCollapsed && <span className='ml-2 text-sm'>{isCollapsed ? '展开' : '折叠'}</span>}
+              </button>
             </div>
           </div>
         </aside>
-        <div
-          className={`transition-all duration-300 sidebar-offset ${isCollapsed ? 'w-16' : 'w-64'
-            }`}
-        ></div>
       </div>
     </SidebarContext.Provider>
   );
