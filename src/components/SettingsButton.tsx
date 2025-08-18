@@ -6,6 +6,7 @@ import { Settings, X, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getConfig } from '@/lib/config';
+import { useMenu } from './MenuProvider';
 
 // 数据源类型定义
 interface DataSource {
@@ -37,6 +38,9 @@ export const SettingsButton: React.FC = () => {
     api: '',
     detail: ''
   });
+
+  // 使用MenuProvider提供的refreshMenu方法
+  const { refreshMenu } = useMenu();
 
   // 确保组件已挂载
   useEffect(() => {
@@ -301,6 +305,8 @@ export const SettingsButton: React.FC = () => {
     setSelectedIndexSource(value);
     if (typeof window !== 'undefined') {
       localStorage.setItem('selectedIndexSource', value);
+      // 切换首页源后立即刷新菜单
+      refreshMenu(value);
     }
   };
 

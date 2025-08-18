@@ -7,6 +7,7 @@ import 'sweetalert2/dist/sweetalert2.min.css';
 import { getConfig } from '@/lib/config';
 
 import { SiteProvider } from '../components/SiteProvider';
+import { MenuProvider } from '../components/MenuProvider';
 import { ThemeProvider } from '../components/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -83,7 +84,9 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <SiteProvider siteName={siteName} announcement={announcement}>
-            {children}
+            <MenuProvider>
+              {children}
+            </MenuProvider>
           </SiteProvider>
         </ThemeProvider>
       </body>

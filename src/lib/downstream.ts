@@ -222,12 +222,17 @@ export async function indexSearchFromApi(
   }
 }
 export async function typeFromApi(
+  source: string
 ): Promise<TypeResult[]> {
   try {
-    const config = (await getConfig()).IndexSource;
+    const config = (await getConfig()).SourceConfig.find(x => x.key === source);
+    if (!config) {
+      return [];
+    }
     const apiBaseUrl = config.api;
     const apiUrl =
       apiBaseUrl + API_CONFIG.type.path;
+    console.log(apiUrl)
     // 添加超时处理
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);

@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState } from 'react';
 
 import { useSite } from './SiteProvider';
+import { useMenu } from './MenuProvider';
 
 // 定义图标映射
 const iconComponents: Record<string, React.ElementType> = {
@@ -83,10 +84,8 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
     return false; // 默认展开
   });
 
-  // 菜单数据状态
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // 使用MenuProvider提供的菜单数据
+  const { menuItems, loading, error } = useMenu();
   // 激活路径状态
   const [active, setActive] = useState(activePath);
 
@@ -112,36 +111,7 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
     }
   }, [isCollapsed, onToggle]);
 
-  // 获取侧边栏内容
-  const getSidebarContent = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // 定义默认的菜单项目
-      const defaultItems: MenuItem[] = [
-        { icon: 'Film', label: '电影', href: '/douban/type/movie' },
-        { icon: 'Tv', label: '剧集', href: '/douban/type/tv' },
-        { icon: 'Clover', label: '综艺', href: '/douban/type/variety' },
-        { icon: 'Star', label: '动漫', href: '/douban/type/animation' },
-        { icon: 'Music', label: '音乐', href: '/douban/type/music' },
-        { icon: 'BookOpen', label: '纪录片', href: '/douban/type/documentary' },
-        { icon: 'Gamepad2', label: '游戏', href: '/douban/type/game' },
-      ];
-
-      setMenuItems(defaultItems);
-    } catch (err) {
-      console.error('Failed to load sidebar content:', err);
-      setError('加载侧边栏内容失败');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // 组件挂载时获取内容
-  useEffect(() => {
-    getSidebarContent();
-  }, [getSidebarContent]);
+  // 组件挂载时不需要额外获取内容，MenuProvider会处理
 
   const contextValue = { isCollapsed };
 
