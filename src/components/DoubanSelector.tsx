@@ -115,7 +115,6 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
     secondaryActiveIndex = showOptions.findIndex(
       (opt) => opt.value === (showOptions[0].value)
     );
-
     if (secondaryActiveIndex >= 0) {
       onSecondaryChange(showOptions[0].value)
       updateIndicatorPosition(

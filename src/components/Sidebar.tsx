@@ -102,6 +102,13 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   useEffect(() => {
     const fetchMenuItems = async () => {
       try {
+
+        const temp = localStorage.getItem('apiMenuItems');
+        // 此处再加是否切换首页源判断
+        if (temp && temp.length > 0) {
+          setMenuItems(JSON.parse(temp));
+          return;
+        }
         setLoading(true);
         setError(null);
         const response = await fetch('/api/index/type');
@@ -119,6 +126,9 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
             label: x.type_name,
             href: `/douban?type=${x.type_id}`,
           }));
+
+        localStorage.setItem('apiMenuItems', JSON.stringify(apiMenuItems));
+
         setMenuItems(apiMenuItems);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');

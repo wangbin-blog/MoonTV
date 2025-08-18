@@ -55,6 +55,14 @@ function DoubanPageClient() {
       setSelectorsReady(true);
     }, 50);
 
+    const raw = localStorage.getItem("menu_type");
+    if (raw && raw.length > 0) {
+      const menuItems = JSON.parse(raw);
+      const item = menuItems.find((item: { type_pid: string }) => item.type_pid == type);
+      if (item) {
+        setSecondarySelection(item.type_id);
+      }
+    }
     return () => clearTimeout(timer);
   }, [type]);
 
@@ -85,10 +93,11 @@ function DoubanPageClient() {
     },
     [type, secondarySelection]
   );
-  let index_pg = 1;
   // 防抖的数据加载函数
   const loadInitialData = useCallback(async () => {
     try {
+      console.log("secondarySelection")
+      console.log(secondarySelection)
       if (secondarySelection == undefined)
         return;
       setLoading(true);
