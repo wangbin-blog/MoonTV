@@ -7,7 +7,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type_id = Number(searchParams.get('type')) | 0;
   const pg = Number(searchParams.get('pg')) | 1;
-  const config = (await getConfig()).IndexSource;
+  const source = searchParams.get('source');
+
+  const config = (await getConfig()).SourceConfig.filter(x => x.key == source)[0];
   const data = await indexSearchFromApi(config, type_id, pg);
   const responsedata = data;
   return NextResponse.json(responsedata);

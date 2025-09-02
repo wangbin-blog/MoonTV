@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { getDoubanCategories } from '@/lib/douban.client';
 import { DoubanItem, SearchResult, ApiSearchItem } from '@/lib/types';
 
 import DoubanCardSkeleton from '@/components/DoubanCardSkeleton';
@@ -15,6 +14,7 @@ import PageLayout from '@/components/PageLayout';
 import VideoCard from '@/components/VideoCard';
 import { cleanHtmlTags } from '@/lib/utils';
 import { getConfig } from '@/lib/config';
+import { useMenu } from '@/components/MenuProvider';
 
 function DoubanPageClient() {
   const searchParams = useSearchParams();
@@ -27,6 +27,8 @@ function DoubanPageClient() {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadingRef = useRef<HTMLDivElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // 使用MenuProvider提供的菜单数据
+  const { getCachedMenuData } = useMenu();
 
   const type = searchParams.get('type') || 'movie';
 
@@ -54,13 +56,17 @@ function DoubanPageClient() {
     const timer = setTimeout(() => {
       setSelectorsReady(true);
     }, 50);
+    console.log(1111)
+    const selectedIndexSource = localStorage.getItem("selectedIndexSource");
+    const menuItems = selectedIndexSource ? getCachedMenuData(selectedIndexSource) : null;
 
-    const raw = localStorage.getItem("menu_type");
-    if (raw && raw.length > 0) {
-      const menuItems = JSON.parse(raw);
-      const item = menuItems.find((item: { type_pid: string }) => item.type_pid == type);
+    console.log(menuItems)
+
+    if (menuItems && menuItems.length > 0) {
+      // const menuItems = JSON.parse(raw);
+      const item = menuItems.find((item) => item.type_pid.toString() === type);
       if (item) {
-        setSecondarySelection(item.type_id);
+        setSecondarySelection(item.type_id.toString());
       }
     }
     return () => clearTimeout(timer);
@@ -232,8 +238,10 @@ function DoubanPageClient() {
   const getData = async () => {
     // 匹配 m3u8 链接的正则
     const M3U8_PATTERN = /(https?:\/\/[^"'\s]+?\.m3u8)/g;
-    const indexSource = (await getConfig()).IndexSource;
-    const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}`);
+    const selectedIndexSource = localStorage.getItem("selectedIndexSource");
+    const indexSource = (await getConfig()).SourceConfig.filter(source => source.key == selectedIndexSource)[0];
+
+    const countresponse = await fetch(`/api/index/count?type=${secondarySelection}&pg=${currentPage + 1}&source=${selectedIndexSource}`);
     if (!countresponse.ok) {
       throw new Error('Failed to fetch menu items');
     }

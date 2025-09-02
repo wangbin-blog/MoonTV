@@ -124,6 +124,12 @@
       "name": "小猫咪资源",
       "selected": false,
       "isIndexSource": false
+    },
+    "soav": {
+      "api": "https://api.souavzy.vip/api.php/provide/vod",
+      "name": "soav资源",
+      "selected": false,
+      "isIndexSource": false
     }
   }
 }

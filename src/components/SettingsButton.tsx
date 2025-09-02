@@ -27,6 +27,22 @@ export const SettingsButton: React.FC = () => {
   const [enableImageProxy, setEnableImageProxy] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [selectedDataSource, setSelectedDataSource] = useState<string[]>([]);
+  
+  // 用于追踪selectedDataSource变化的自定义setter
+  const setSelectedDataSourceWithLog = (value: string[]) => {
+    console.log('selectedDataSource将要更新为:', value, '当前值:', selectedDataSource);
+    setSelectedDataSource(value);
+    // 立即保存到localStorage（除了初始化阶段）
+    if (typeof window !== 'undefined') {
+      // 在初始化阶段也保存，确保数据不丢失
+      if (!isFirstLoad) {
+        console.log('立即保存到localStorage:', value);
+      } else {
+        console.log('初始化阶段保存到localStorage:', value);
+      }
+      localStorage.setItem('selectedDataSource', JSON.stringify(value));
+    }
+  };
   const [selectedIndexSource, setSelectedIndexSource] = useState('');
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [config, setConfig] = useState<{ SourceConfig: DataSource[], IndexSource: any } | null>(null);
@@ -68,114 +84,132 @@ export const SettingsButton: React.FC = () => {
     }
   }, [customSources]);
 
-  // 获取配置数据
+  // 初始化所有设置（包括从localStorage读取和加载配置）
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const configData = await getConfig();
+    const initializeSettings = async () => {
+      if (typeof window !== 'undefined' && mounted) {
+        // 先从localStorage读取所有设置
+        const savedAggregateSearch = localStorage.getItem('defaultAggregateSearch');
+        if (savedAggregateSearch !== null) {
+          setDefaultAggregateSearch(JSON.parse(savedAggregateSearch));
+        }
 
-        // 设置配置数据
-        setConfig({
-          SourceConfig: configData.SourceConfig,
-          IndexSource: configData.SourceConfig
-        });
+        const savedDoubanProxyUrl = localStorage.getItem('doubanProxyUrl');
+        if (savedDoubanProxyUrl !== null) {
+          setDoubanProxyUrl(savedDoubanProxyUrl);
+        }
 
-        // 如果是首次加载且没有从localStorage中读取到数据源，则从配置中获取默认选中的数据源
-        if (isFirstLoad && selectedDataSource.length === 0) {
-          // 找到配置中selected设置为true的第一个数据源
-          const defaultSource = configData.SourceConfig.find(source =>
-            typeof source.selected === 'boolean' && source.selected
-          );
+        const savedEnableImageProxy = localStorage.getItem('enableImageProxy');
+        const defaultImageProxy = (window as any).RUNTIME_CONFIG?.IMAGE_PROXY || '';
+        if (savedEnableImageProxy !== null) {
+          setEnableImageProxy(JSON.parse(savedEnableImageProxy));
+        } else if (defaultImageProxy) {
+          setEnableImageProxy(true);
+        }
 
-          if (defaultSource) {
-            setSelectedDataSource([defaultSource.key]);
-            setSelectedIndexSource(defaultSource.key);
+        const savedImageProxyUrl = localStorage.getItem('imageProxyUrl');
+        if (savedImageProxyUrl !== null) {
+          setImageProxyUrl(savedImageProxyUrl);
+        } else if (defaultImageProxy) {
+          setImageProxyUrl(defaultImageProxy);
+        }
 
-            // 如果在客户端环境，保存到localStorage
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('selectedDataSource', JSON.stringify([defaultSource.key]));
-              localStorage.setItem('selectedIndexSource', defaultSource.key);
+        const savedEnableOptimization = localStorage.getItem('enableOptimization');
+        if (savedEnableOptimization !== null) {
+          setEnableOptimization(JSON.parse(savedEnableOptimization));
+        }
+
+        // 读取首页源设置
+        const savedIndexSource = localStorage.getItem('selectedIndexSource');
+        let hasValidIndexSource = false;
+        if (savedIndexSource !== null) {
+          setSelectedIndexSource(savedIndexSource);
+          hasValidIndexSource = true;
+        }
+
+        // 读取数据源设置（立即读取，不依赖配置加载）
+        const savedDataSource = localStorage.getItem('selectedDataSource');
+        console.log('从localStorage读取的selectedDataSource:', savedDataSource)
+        let hasValidDataSource = false;
+        let parsedDataSource = null;
+        
+        if (savedDataSource !== null) {
+          try {
+            parsedDataSource = JSON.parse(savedDataSource);
+            const validData = Array.isArray(parsedDataSource) ? parsedDataSource : [parsedDataSource];
+            if (validData.length > 0) {
+              // 先临时保存用户的选择
+              setSelectedDataSourceWithLog(validData);
+              hasValidDataSource = true;
             }
-          } else if (configData.SourceConfig.length > 0) {
-            // 如果没有selected为true的数据源，则使用第一个数据源
-            setSelectedDataSource([configData.SourceConfig[0].key]);
-            setSelectedIndexSource(configData.SourceConfig[0].key);
+          } catch (error) {
+            console.error('解析localStorage中的selectedDataSource失败:', error);
+          }
+        }
 
-            // 如果在客户端环境，保存到localStorage
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('selectedDataSource', JSON.stringify([configData.SourceConfig[0].key]));
-              localStorage.setItem('selectedIndexSource', configData.SourceConfig[0].key);
+        // 加载配置数据
+        try {
+          const configData = await getConfig();
+
+          // 设置配置数据
+          setConfig({ SourceConfig: configData.SourceConfig, IndexSource: configData.SourceConfig });
+
+          // 验证并可能修正已保存的数据源
+          if (parsedDataSource !== null && configData.SourceConfig.length > 0) {
+            const allSourceKeys = configData.SourceConfig
+              .filter((s: DataSource) => !s.disabled)
+              .map((s: DataSource) => s.key);
+            
+            const validData = Array.isArray(parsedDataSource) ? parsedDataSource : [parsedDataSource];
+            const filteredData = validData.filter(key => allSourceKeys.includes(key));
+
+            if (filteredData.length > 0 && JSON.stringify(filteredData) !== JSON.stringify(selectedDataSource)) {
+              // 只有当过滤后的数据与当前值不同时才更新
+              console.log('验证并修正保存的数据源:', filteredData, '所有可用源:', allSourceKeys);
+              setSelectedDataSourceWithLog(filteredData);
+              localStorage.setItem('selectedDataSource', JSON.stringify(filteredData));
+            }
+          }
+
+          // 如果没有有效的数据源或首页源，使用配置中的默认值
+          if (!hasValidDataSource || !hasValidIndexSource) {
+            // 找到配置中selected设置为true的第一个数据源
+            let defaultSource = configData.SourceConfig.find(source =>
+              typeof source.selected === 'boolean' && source.selected
+            );
+
+            // 如果没有selected为true的数据源，则使用第一个可用数据源
+            if (!defaultSource && configData.SourceConfig.length > 0) {
+              defaultSource = configData.SourceConfig[0];
+            }
+
+            if (defaultSource) {
+              // 只有当localStorage中没有有效数据时才设置默认值
+              if (!hasValidDataSource) {
+                const defaultDataSource = [defaultSource.key];
+                console.log('设置默认数据源:', defaultDataSource, 'hasValidDataSource:', hasValidDataSource);
+                setSelectedDataSourceWithLog(defaultDataSource);
+                localStorage.setItem('selectedDataSource', JSON.stringify(defaultDataSource));
+              }
+              if (!hasValidIndexSource) {
+                setSelectedIndexSource(defaultSource.key);
+                localStorage.setItem('selectedIndexSource', defaultSource.key);
+              }
+            } else {
+              console.error('没有可用的数据源配置');
             }
           }
 
           setIsFirstLoad(false);
+        } catch (error) {
+          console.error('Failed to load config:', error);
+          setIsFirstLoad(false);
         }
-      } catch (error) {
-        console.error('Failed to load config:', error);
       }
     };
 
-    if (mounted) {
-      loadConfig();
-    }
-  }, [mounted, isFirstLoad, selectedDataSource.length]);
-
-  // 从 localStorage 读取设置
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedAggregateSearch = localStorage.getItem(
-        'defaultAggregateSearch'
-      );
-      if (savedAggregateSearch !== null) {
-        setDefaultAggregateSearch(JSON.parse(savedAggregateSearch));
-      }
-
-      const savedDoubanProxyUrl = localStorage.getItem('doubanProxyUrl');
-      if (savedDoubanProxyUrl !== null) {
-        setDoubanProxyUrl(savedDoubanProxyUrl);
-      }
-
-      const savedEnableImageProxy = localStorage.getItem('enableImageProxy');
-      const defaultImageProxy = (window as any).RUNTIME_CONFIG?.IMAGE_PROXY || '';
-      if (savedEnableImageProxy !== null) {
-        setEnableImageProxy(JSON.parse(savedEnableImageProxy));
-      } else if (defaultImageProxy) {
-        // 如果有默认图片代理配置，则默认开启
-        setEnableImageProxy(true);
-      }
-
-      const savedImageProxyUrl = localStorage.getItem('imageProxyUrl');
-      if (savedImageProxyUrl !== null) {
-        setImageProxyUrl(savedImageProxyUrl);
-      } else if (defaultImageProxy) {
-        setImageProxyUrl(defaultImageProxy);
-      }
-
-      const savedEnableOptimization = localStorage.getItem('enableOptimization');
-      if (savedEnableOptimization !== null) {
-        setEnableOptimization(JSON.parse(savedEnableOptimization));
-      }
-
-      // 读取数据源设置
-      const savedDataSource = localStorage.getItem('selectedDataSource');
-      if (savedDataSource !== null) {
-        try {
-          const parsedData = JSON.parse(savedDataSource);
-          setSelectedDataSource(Array.isArray(parsedData) ? parsedData : [parsedData]);
-          setIsFirstLoad(false); // 已经从localStorage加载，不再使用默认配置
-        } catch {
-          // 如果解析失败，保持为空数组，后续会从配置中获取
-        }
-      }
-
-      // 读取首页源设置
-      const savedIndexSource = localStorage.getItem('selectedIndexSource');
-      if (savedIndexSource !== null) {
-        setSelectedIndexSource(savedIndexSource);
-        setIsFirstLoad(false); // 已经从localStorage加载，不再使用默认配置
-      }
-    }
-  }, []);
+    initializeSettings();
+  }, [mounted]);
 
   // 处理添加自定义数据源
   const handleAddCustomSource = () => {
@@ -236,10 +270,11 @@ export const SettingsButton: React.FC = () => {
 
   // 保存数据源选择到localStorage
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isFirstLoad) {
+      console.log('通过useEffect保存到localStorage:', selectedDataSource);
       localStorage.setItem('selectedDataSource', JSON.stringify(selectedDataSource));
     }
-  }, [selectedDataSource]);
+  }, [selectedDataSource, isFirstLoad]);
 
   // 保存设置到 localStorage
   const handleAggregateToggle = (value: boolean) => {
@@ -279,6 +314,7 @@ export const SettingsButton: React.FC = () => {
 
   // 处理数据源切换
   const handleDataSourceChange = (value: string, isChecked: boolean) => {
+    console.log('处理数据源切换:', value, '选中状态:', isChecked, '当前选择:', selectedDataSource);
     setSelectedDataSource(prev => {
       const newSelection = [...prev];
       if (isChecked && !newSelection.includes(value)) {
@@ -292,10 +328,12 @@ export const SettingsButton: React.FC = () => {
         if (newSelection.length === 0 && config?.SourceConfig) {
           const firstAvailable = config.SourceConfig.find((source: any) => !source.disabled);
           if (firstAvailable) {
+            console.log('自动选择第一个可用数据源:', firstAvailable.key);
             newSelection.push(firstAvailable.key);
           }
         }
       }
+      console.log('新的数据源选择:', newSelection);
       return newSelection;
     });
   };

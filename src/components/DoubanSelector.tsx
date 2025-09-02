@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { useMenu } from '@/components/MenuProvider';
 
 interface SelectorOption {
   label: string;
@@ -48,6 +49,8 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
   const [showOptions, setShowOptions] = useState<showOptions[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  // 使用MenuProvider提供的菜单数据
+  const { getCachedMenuData } = useMenu();
   // 从API获取菜单数据
   useEffect(() => {
     fetchMenuItems();
@@ -56,11 +59,10 @@ const DoubanSelector: React.FC<DoubanSelectorProps> = ({
     try {
       setLoading(true);
       setError(null);
-      // 存入缓存
-      const raw = localStorage.getItem("menu_type");
-      if (!raw) return [];
-      var data = JSON.parse(raw) as TypeResult[];
-      const result = data
+      const selectedIndexSource = localStorage.getItem("selectedIndexSource");
+      const menuItems = selectedIndexSource ? getCachedMenuData(selectedIndexSource) : null;
+      if (!menuItems) return [];
+      const result = menuItems
         .filter((x: { type_pid: number; }) => x.type_pid === Number(type))
         .map((item) => ({
           label: item.type_name,

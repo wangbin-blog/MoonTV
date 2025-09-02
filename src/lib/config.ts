@@ -10,6 +10,7 @@ export interface ApiSite {
   api: string;
   name: string;
   detail?: string;
+  selected?: boolean;
 }
 
 interface ConfigFileStruct {
@@ -178,7 +179,7 @@ async function initConfig() {
             api: site.api,
             detail: site.detail,
             from: 'config',
-            disabled: false,
+            selected: false,
           })),
           IndexSource: apiSiteEntries
             .filter(([_, site]) => site.isIndexSource)
@@ -224,7 +225,7 @@ async function initConfig() {
         api: site.api,
         detail: site.detail,
         from: 'config',
-        disabled: false,
+        selected: false,
       })),
       IndexSource: apiSiteEntries
         .filter(([_, site]) => site.isIndexSource)
@@ -241,16 +242,78 @@ async function initConfig() {
 
 export async function getConfig(): Promise<AdminConfig> {
   const storageType = process.env.NEXT_PUBLIC_STORAGE_TYPE || 'localstorage';
+
+  // 处理Docker或localstorage环境
   if (process.env.DOCKER_ENV === 'true' || storageType === 'localstorage') {
     await initConfig();
+    console.log(88888)
+
+    // 尝试从localStorage读取selectedDataSource
+    let selectedDataSource: string[] = [];
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('selectedDataSource');
+        console.log(saved)
+        console.log(90000)
+        if (saved) {
+          selectedDataSource = JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('读取selectedDataSource失败:', error);
+      }
+
+      // 尝试从localStorage读取customSources
+      try {
+        const savedCustomSources = localStorage.getItem('customSources');
+        if (savedCustomSources) {
+          const customSources = JSON.parse(savedCustomSources);
+          if (Array.isArray(customSources) && customSources.length > 0) {
+            cachedConfig.SourceConfig = cachedConfig.SourceConfig || [];
+
+            // 获取现有的源的key集合，用于去重
+            const existingKeys = new Set(cachedConfig.SourceConfig.map(source => source.key));
+            const fileConfig = runtimeConfig as unknown as ConfigFileStruct;
+            const apiSiteKeys = new Set(Object.keys(fileConfig.api_site));
+
+            // 过滤掉已存在的源
+            const filteredCustomSources = customSources.filter((source: any) =>
+              !existingKeys.has(source.key) && !apiSiteKeys.has(source.key)
+            );
+
+            if (filteredCustomSources.length > 0) {
+              cachedConfig.SourceConfig.push(...filteredCustomSources.map((source: any) => ({
+                ...source,
+                from: 'custom' as const,
+                selected: selectedDataSource.includes(source.key),
+                isIndexSource: false
+              })));
+              console.log('从localStorage添加了自定义源:', filteredCustomSources.length);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('读取customSources失败:', error);
+      }
+    }
+    console.log(2000)
+    console.log(selectedDataSource)
+    // 更新所有源的selected状态
+    cachedConfig.SourceConfig = cachedConfig.SourceConfig || [];
+    cachedConfig.SourceConfig = cachedConfig.SourceConfig.map(source => ({
+      ...source,
+      selected: selectedDataSource.includes(source.key),
+    }));
+
     return cachedConfig;
   }
-  // 非 docker 环境且 DB 存储，直接读 db 配置
+
+  // 处理非Docker环境且DB存储的情况
   const storage = getStorage();
   let adminConfig: AdminConfig | null = null;
   if (storage && typeof (storage as any).getAdminConfig === 'function') {
     adminConfig = await (storage as any).getAdminConfig();
   }
+
   if (adminConfig) {
     // 合并一些环境变量配置
     adminConfig.SiteConfig.SiteName = process.env.SITE_NAME || 'MoonTV';
@@ -263,9 +326,10 @@ export async function getConfig(): Promise<AdminConfig> {
       process.env.NEXT_PUBLIC_IMAGE_PROXY || '';
 
     // 合并文件中的源信息
-    fileConfig = runtimeConfig as unknown as ConfigFileStruct;
+    const fileConfig = runtimeConfig as unknown as ConfigFileStruct;
     const apiSiteEntries = Object.entries(fileConfig.api_site);
     const existed = new Set((adminConfig.SourceConfig || []).map((s) => s.key));
+
     apiSiteEntries.forEach(([key, site]) => {
       if (!existed.has(key)) {
         adminConfig!.SourceConfig.push({
@@ -304,6 +368,7 @@ export async function getConfig(): Promise<AdminConfig> {
     // DB 无配置，执行一次初始化
     await initConfig();
   }
+
   return cachedConfig;
 }
 
@@ -400,10 +465,13 @@ export async function getCacheTime(): Promise<number> {
 
 export async function getAvailableApiSites(): Promise<ApiSite[]> {
   const config = await getConfig();
-  return config.SourceConfig.map((s) => ({
-    key: s.key,
-    name: s.name,
-    api: s.api,
-    detail: s.detail,
-  }));
+  return config.SourceConfig
+    // .filter((s) => s.selected)
+    .map((s) => ({
+      key: s.key,
+      name: s.name,
+      api: s.api,
+      detail: s.detail,
+      selected: s.selected
+    }));
 }

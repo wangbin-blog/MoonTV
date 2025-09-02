@@ -18,24 +18,6 @@ const iconComponents: Record<string, React.ElementType> = {
   BookOpen: BookOpen,
   Gamepad2: Gamepad2,
 };
-
-// 定义类型名称到图标的映射
-const iconMap: Record<string, string> = {
-  '电影': 'Film',
-  '剧集': 'Tv',
-  '综艺': 'Clover',
-  '动漫': 'Star',
-  '音乐': 'Music',
-  '纪录片': 'BookOpen',
-  '游戏': 'Gamepad2',
-};
-
-type MenuItem = {
-  icon: string;
-  label: string;
-  href: string;
-};
-
 interface SidebarContextType {
   isCollapsed: boolean;
 }
@@ -85,7 +67,7 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
   });
 
   // 使用MenuProvider提供的菜单数据
-  const { menuItems, loading, error } = useMenu();
+  const { menuItems, loading, error, getCachedMenuData } = useMenu();
   // 激活路径状态
   const [active, setActive] = useState(activePath);
 
@@ -145,7 +127,7 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
                 </div>
                 {!isCollapsed && <span className='whitespace-nowrap transition-opacity duration-200 opacity-100'>首页</span>}
               </Link>
-              
+
               <Link
                 href='/search'
                 onClick={() => setActive('/search')}
@@ -166,12 +148,12 @@ const Sidebar = ({ onToggle, activePath = '/' }: SidebarProps) => {
                     const tagMatch = /tag=([^&]+)/.exec(active);
                     // 提取分类类型
                     const typeMatch = item.href.split('/').pop() || '';
-                    
+
                     // 解码URL以进行正确的比较
                     const decodedActive = decodeURIComponent(active);
                     const decodedItemHref = decodeURIComponent(item.href);
 
-                    const isActive = 
+                    const isActive =
                       decodedActive === decodedItemHref ||
                       (decodedActive.startsWith('/douban') &&
                         decodedActive.includes(`type=${typeMatch}`) &&

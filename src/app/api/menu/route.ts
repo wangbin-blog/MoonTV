@@ -69,9 +69,19 @@ const setCachedData = (key: string, data: TypeResult[]): void => {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const source = searchParams.get('source') || '';
+  const refresh = searchParams.get('refresh') === 'true';
+  const raw = searchParams.get('raw') === 'true';
 
   // 缓存键，包含source以支持不同源的缓存
   const cacheKey = `menu_type_${source}`;
+
+  // 如果请求刷新，则清除缓存
+  if (refresh) {
+    console.log(`[Menu Cache] Refresh requested, clearing cache for key: ${cacheKey}`);
+    if (memoryCache[cacheKey]) {
+      delete memoryCache[cacheKey];
+    }
+  }
 
   // 尝试从缓存获取数据
   console.log(`[Menu Cache] Checking cache for key: ${cacheKey}`);
@@ -94,6 +104,12 @@ export async function GET(request: Request) {
 
   console.log(`[Menu Cache] Final results count: ${results.length}`);
 
+  // 如果请求原始数据，直接返回原始结果
+  if (raw) {
+    console.log(`[Menu Cache] Returning raw data for key: ${cacheKey}`);
+    return NextResponse.json(results);
+  }
+
   // 过滤并映射结果为menuItems格式
   const apiMenuItems = results
     .filter(x => x.type_pid == 0)
@@ -104,7 +120,7 @@ export async function GET(request: Request) {
     }));
 
   // 如果没有匹配的结果，返回默认菜单
-  const responseMenuItems = apiMenuItems.length > 0 ? apiMenuItems : menuItems;
+  const responseMenuItems = apiMenuItems.length > 0 ? apiMenuItems : [];
 
   return NextResponse.json(responseMenuItems);
 }
